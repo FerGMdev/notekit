@@ -9,6 +9,7 @@ import {
 import { CheckCircle } from "lucide-react";
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { getStripeSession, stripe } from "@/lib/stripe";
 import {
   StripeSubscriptionCreationButton,
@@ -22,6 +23,19 @@ const features = [
   { name: "Unlimited Characters" },
   { name: "Unlimited Tokens" },
 ];
+
+/* Resolve the public base URL so Stripe redirects work in every environment. */
+async function getBaseUrl() {
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL;
+  }
+
+  const headersList = await headers();
+  const host = headersList.get("host");
+  const protocol = headersList.get("x-forwarded-proto") ?? "http";
+
+  return `${protocol}://${host}`;
+}
 
 async function getData(userId: string) {
   const data = await prisma.subscription.findUnique({
@@ -64,7 +78,7 @@ export default async function BillingPage() {
 
     const subscriptionUrl = await getStripeSession({
       customerId: dbUser.stripeCustomerId,
-      domainUrl: "http://localhost:3000",
+      domainUrl: await getBaseUrl(),
       priceId: process.env.STRIPE_PRICE_ID as string,
     });
 
@@ -76,7 +90,7 @@ export default async function BillingPage() {
 
     const session = await stripe.billingPortal.sessions.create({
       customer: data?.user.stripeCustomerId as string,
-      return_url: "http://localhost:3000/dashboard/billing",
+      return_url: `${await getBaseUrl()}/dashboard/billing`,
     });
 
     return redirect(session.url);
