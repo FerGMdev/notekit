@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: notekit
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/notekit
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/notekit
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      BILLING_PROVIDER: mock
+      # Placeholders: the build must succeed without real provider secrets.
+      KINDE_CLIENT_ID: ci-placeholder
+      KINDE_CLIENT_SECRET: ci-placeholder
+      KINDE_ISSUER_URL: https://placeholder.kinde.com
+      KINDE_SITE_URL: http://localhost:3000
+      KINDE_POST_LOGIN_REDIRECT_URL: http://localhost:3000/dashboard
+      KINDE_POST_LOGOUT_REDIRECT_URL: http://localhost:3000
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests
+        run: npm test
+
+      - name: Build
+        run: npm run build

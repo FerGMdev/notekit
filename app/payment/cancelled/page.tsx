@@ -5,28 +5,16 @@ import Link from "next/link";
 
 export default function CancelledRoute() {
   return (
-    <div className="w-full min-h-[80vh] flex items-center justify-center">
-      <Card className="w-[350px]">
-        <div className="p-6">
-          <div className="w-full flex justify-center">
-            <XCircle className="w-12 h-12 text-red-500 p-1 rounded-full" />
-          </div>
-          <div className="mt-3 text-center sm:mt-5 w-full">
-            <h3 className="text-3xl font-bold">Payment Cancelled</h3>
-            <div className="mt-2">
-              <p className="text-md text-gray-500">
-                No worries, you wont be charged. <br />
-                Please try again.
-              </p>
-            </div>
-
-            <div className="mt-5 sm:mt-6 w-full flex justify-center gap-2">
-              <Button className="w-full" asChild>
-                <Link href="/">Go back to Dashboard</Link>
-              </Button>
-            </div>
-          </div>
-        </div>
+    <div className="w-full min-h-[80vh] flex items-center justify-center px-4">
+      <Card className="w-full max-w-sm p-6 text-center">
+        <XCircle className="mx-auto h-12 w-12 text-red-500" />
+        <h1 className="mt-4 text-2xl font-bold">Checkout cancelled</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          You were not charged. You can upgrade whenever you are ready.
+        </p>
+        <Button className="mt-6 w-full" asChild>
+          <Link href="/dashboard/billing">Back to plans</Link>
+        </Button>
       </Card>
     </div>
   );

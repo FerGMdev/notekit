@@ -1,95 +1,106 @@
-# NoteSaaS
+# Notekit
 
-A full-stack notes SaaS built with **Next.js 15 (App Router)**, **Prisma**, **PostgreSQL**, **Kinde** for authentication and **Stripe** for subscription billing.
+A notes app built as a real product, not a tutorial: private notes, a free plan
+that is enforced on the server, and a codebase you can reason about.
 
-Users sign in with Kinde, create, edit and delete notes, and unlock note creation with an active Stripe subscription. Everything runs server-side through React Server Components and Server Actions, with no separate API layer.
-
----
-
-## Table of contents
-
-- [Features](#features)
-- [Tech stack](#tech-stack)
-- [Project structure](#project-structure)
-- [Getting started](#getting-started)
-- [Environment variables](#environment-variables)
-- [Stripe setup](#stripe-setup)
-- [Available scripts](#available-scripts)
-- [Routes](#routes)
-- [Deployment](#deployment)
-- [Known limitations](#known-limitations)
-- [License](#license)
+> **Status:** early but production-minded. The product surface (markdown editor,
+> tags, search, AI) is being built in the open; the foundations — authorisation,
+> validation, migrations, tests and CI — are already in place.
 
 ---
 
-## Features
+## What it does today
 
-- **Authentication with Kinde** — sign up, sign in, log out and session handling out of the box.
-- **Notes CRUD** — create, list, edit and delete notes, scoped to the signed-in user.
-- **Subscription paywall** — creating notes requires an active Stripe subscription.
-- **Stripe Checkout** — hosted checkout session for the monthly plan.
-- **Stripe Customer Portal** — users can change or cancel their plan on their own.
-- **Stripe webhooks** — subscription state is synced to the database.
-- **Server Actions + `revalidatePath`** — mutations refresh the UI without client-side data fetching.
-- **Theming** — light/dark mode plus 7 accent color schemes persisted per user, in the database.
-- **UI** — Tailwind CSS + shadcn/ui components, responsive layout, accessible primitives from Radix UI.
+- **Authentication** with Kinde (sign up, sign in, session handling).
+- **Notes CRUD** scoped to the signed-in account, with server-side ownership
+  checks on every read and write.
+- **Markdown content** stored as portable text (rendering lands with the editor).
+- **Free plan with a real limit** — 10 notes — plus a Pro plan for unlimited
+  notes. The limit is enforced in the domain layer, not by hiding buttons.
+- **Stripe billing** — Checkout, Customer Portal and signed webhooks, with a
+  `mock` provider so the app is fully usable without Stripe keys.
+- **Per-user theming** — light/dark plus seven accent schemes.
+- **Failure UX** — error boundaries, a real 404 page, loading skeletons and
+  accessible form feedback.
 
-## Tech stack
+## Architecture
+
+```
+app/
+├── dashboard/              # Auth-gated area (force-dynamic)
+│   ├── notes/[id]/         # Edit a note
+│   ├── new/                # Create a note
+│   ├── billing/            # Plans + subscription management
+│   ├── settings/           # Profile + colour scheme
+│   ├── loading.tsx         # Streamed skeleton
+│   ├── layout.tsx          # Session guard + user sync
+│   └── page.tsx            # Notes list
+├── lib/
+│   ├── auth.ts             # The only place that knows about the identity provider
+│   ├── notes.ts            # Note domain layer (ownership + plan rules)
+│   ├── billing.ts          # Stripe or mock, chosen by config
+│   ├── users.ts            # User mirroring + first-run welcome note
+│   ├── env.ts              # Validated, typed environment
+│   ├── url.ts              # Absolute URLs for redirects
+│   └── db.ts               # Prisma singleton
+├── api/webhook/stripe/     # Signature-verified webhook
+└── page.tsx                # Landing
+```
+
+### Three decisions worth explaining
+
+**1. Authorisation lives next to the data, not in the UI.**
+`app/lib/notes.ts` takes a `userId` on every function and filters by it inside
+the query (`where: { id, userId }`). Calling `deleteNote(user.id, noteId)` with
+another account's note updates/deletes zero rows and throws `NoteNotFoundError`.
+A missing note and someone else's note are deliberately indistinguishable.
+
+**2. Billing is a provider, not a hard dependency.**
+`app/lib/billing.ts` exposes `createCheckoutUrl`, `createPortalUrl` and
+`getSubscriptionStatus`. With `BILLING_PROVIDER=stripe` it talks to Stripe; with
+`mock` it flips a local subscription row so reviewers can explore the Pro state
+without keys or a card. Stripe's client is created lazily, so a missing key no
+longer crashes the app at import time.
+
+**3. The database is migrated, not pushed.**
+`prisma/migrations/` is committed. `prisma migrate deploy` is the deployment
+step, and `prisma/seed.ts` provides deterministic fixtures for development and
+tests. Note ownership is a required foreign key with `ON DELETE CASCADE`, so
+orphan notes cannot exist.
+
+## Security model
+
+| Risk | Mitigation |
+| --- | --- |
+| IDOR on notes | Every query filters by `userId`; cross-account access is a 404. |
+| Paywall bypass | The free-plan limit is checked inside `createNote`, not in JSX. |
+| Untrusted input | Zod schemas at the boundary (`title` ≤ 120 chars, `content` ≤ 50k). |
+| Forged webhooks | Stripe signature verification is mandatory; the route is 503 without a secret. |
+| Misconfiguration | `app/lib/env.ts` validates the environment once and fails loudly. |
+| Privilege escalation | Dashboard routes are auth-gated server-side; actions re-read the session. |
+
+## Stack
 
 | Layer | Technology |
 | --- | --- |
-| Framework | [Next.js 15](https://nextjs.org/) (App Router, Server Components, Server Actions) |
-| Language | [TypeScript](https://www.typescriptlang.org/) |
-| Styling | [Tailwind CSS](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/) (Radix UI) |
-| Auth | [Kinde](https://kinde.com/) (`@kinde-oss/kinde-auth-nextjs`) |
-| Database | PostgreSQL |
-| ORM | [Prisma](https://www.prisma.io/) |
-| Payments | [Stripe](https://stripe.com/) (Checkout, Billing Portal, Webhooks) |
-| Icons | [lucide-react](https://lucide.dev/) |
-| Theming | [next-themes](https://github.com/pacocoursey/next-themes) |
-
-## Project structure
-
-```
-.
-├── app/
-│   ├── api/
-│   │   ├── auth/[kindeAuth]/route.ts   # Kinde auth handler
-│   │   └── webhook/stripe/route.ts     # Stripe webhook endpoint
-│   ├── components/                     # App-level components (Navbar, UserNav, ...)
-│   ├── dashboard/
-│   │   ├── billing/page.tsx            # Upgrade + manage subscription
-│   │   ├── new/[id]/page.tsx           # Edit a note
-│   │   ├── new/page.tsx                # Create a note
-│   │   ├── settings/page.tsx           # Profile + color scheme
-│   │   ├── layout.tsx                  # Auth guard + user sync
-│   │   └── page.tsx                    # Notes list
-│   ├── lib/db.ts                       # Prisma client singleton
-│   ├── payment/
-│   │   ├── cancelled/page.tsx          # Checkout cancelled
-│   │   └── success/page.tsx            # Checkout success
-│   ├── layout.tsx                      # Root layout (fonts, theme, navbar)
-│   ├── globals.css                     # Tailwind + theme tokens
-│   └── page.tsx                        # Landing page
-├── components/ui/                      # shadcn/ui primitives
-├── lib/
-│   ├── stripe.ts                       # Stripe client + checkout session helper
-│   └── utils.ts                        # cn() helper
-├── prisma/schema.prisma                # User, Subscription, Note models
-└── public/                             # Static assets
-```
+| Framework | Next.js 15 (App Router, Server Components, Server Actions) |
+| Language | TypeScript (strict) |
+| Database | PostgreSQL (Neon-compatible) + Prisma |
+| Auth | Kinde |
+| Payments | Stripe (optional) |
+| UI | Tailwind CSS + shadcn/ui (Radix) |
+| Tests | Vitest against a real Postgres database |
 
 ## Getting started
 
 ### Prerequisites
 
-- **Node.js 18.18+** (Node 20 LTS recommended)
-- **npm** (or pnpm/yarn — a lockfile for npm is included)
-- A **PostgreSQL** database ([Neon](https://neon.tech/), [Supabase](https://supabase.com/), or local)
-- A **Kinde** account and application
-- A **Stripe** account (test mode is fine for local development)
+- Node.js 20+ (Node 24 tested)
+- npm
+- A PostgreSQL database ([Neon](https://neon.tech/) free tier works)
+- A Kinde application (only needed to sign in)
 
-### 1. Clone and install
+### 1. Install
 
 ```bash
 git clone https://github.com/FerGMdev/my-note-saas-app.git
@@ -97,25 +108,23 @@ cd my-note-saas-app
 npm install
 ```
 
-`npm install` also runs `prisma generate` via the `postinstall` script.
-
-### 2. Configure environment variables
+### 2. Configure
 
 ```bash
 cp .env.example .env
 ```
 
-Then fill in the values — see [Environment variables](#environment-variables).
+Minimum to boot: `DATABASE_URL` and `DIRECT_URL`. Set
+`BILLING_PROVIDER="mock"` to skip Stripe entirely.
 
-### 3. Create the database schema
+### 3. Create the schema
 
 ```bash
-npx prisma migrate dev --name init
+npx prisma migrate deploy   # apply committed migrations
+npm run db:seed             # optional fixtures
 ```
 
-For a quick first run without migration history you can use `npx prisma db push`.
-
-### 4. Start the dev server
+### 4. Run
 
 ```bash
 npm run dev
@@ -123,106 +132,87 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-> The dashboard layout creates the user row and the Stripe customer on first visit, so sign in once to seed your account.
-
 ## Environment variables
 
 | Variable | Required | Description |
 | --- | --- | --- |
-| `DATABASE_URL` | ✅ | Pooled PostgreSQL connection string (used by the app at runtime). |
-| `DIRECT_URL` | ✅ | Direct PostgreSQL connection string (used by Prisma Migrate). |
-| `KINDE_CLIENT_ID` | ✅ | Kinde application client ID. |
-| `KINDE_CLIENT_SECRET` | ✅ | Kinde application client secret. |
-| `KINDE_ISSUER_URL` | ✅ | Your Kinde domain, e.g. `https://your-app.kinde.com`. |
-| `KINDE_SITE_URL` | ✅ | Public URL of the app (`http://localhost:3000` in development). |
-| `KINDE_POST_LOGIN_REDIRECT_URL` | ✅ | Where to land after login, e.g. `http://localhost:3000/dashboard`. |
-| `KINDE_POST_LOGOUT_REDIRECT_URL` | ✅ | Where to land after logout, e.g. `http://localhost:3000`. |
-| `STRIPE_SECRET_KEY` | ✅ | Stripe secret key (`sk_test_...`). |
-| `STRIPE_WEBHOOK_SECRET` | ✅ | Signing secret of the webhook endpoint (`whsec_...`). |
-| `STRIPE_PRICE_ID` | ✅ | Price ID of the subscription plan (`price_...`). |
-| `NEXT_PUBLIC_APP_URL` | ⬜ | Public base URL used for Stripe redirects. Falls back to the request host when unset. |
+| `DATABASE_URL` | ✅ | Pooled PostgreSQL URL used at runtime. |
+| `DIRECT_URL` | ✅ | Direct URL used by Prisma Migrate. |
+| `KINDE_CLIENT_ID` | ✅ to sign in | Kinde application client ID. |
+| `KINDE_CLIENT_SECRET` | ✅ to sign in | Kinde client secret. |
+| `KINDE_ISSUER_URL` | ✅ to sign in | Your Kinde domain. |
+| `KINDE_SITE_URL` | ✅ to sign in | Public app URL. |
+| `KINDE_POST_LOGIN_REDIRECT_URL` | ✅ to sign in | Usually `<app>/dashboard`. |
+| `KINDE_POST_LOGOUT_REDIRECT_URL` | ✅ to sign in | Usually `<app>/`. |
+| `BILLING_PROVIDER` | ⬜ | `stripe` or `mock`. Inferred from `STRIPE_SECRET_KEY` when unset. |
+| `STRIPE_SECRET_KEY` | ⬜ | `sk_test_...`; required when billing is `stripe`. |
+| `STRIPE_WEBHOOK_SECRET` | ⬜ | `whsec_...` for `/api/webhook/stripe`. |
+| `STRIPE_PRICE_ID` | ⬜ | Recurring price for the Pro plan. |
+| `NEXT_PUBLIC_APP_URL` | ⬜ | Canonical URL; defaults to the request host. |
 
-Kinde's SDK reads its variables directly from the environment, so the names above must match exactly.
-
-## Stripe setup
-
-1. **Create a product and a recurring price** in the Stripe Dashboard (Test mode) and copy the price ID into `STRIPE_PRICE_ID`.
-2. **Forward webhooks locally** with the [Stripe CLI](https://stripe.com/docs/stripe-cli):
-
-   ```bash
-   stripe login
-   stripe listen --forward-to localhost:3000/api/webhook/stripe
-   ```
-
-   Copy the printed `whsec_...` into `STRIPE_WEBHOOK_SECRET`.
-
-3. **Subscribe to these events** (the CLI forwards all of them; in production select them in the Dashboard):
-
-   - `checkout.session.completed`
-   - `invoice.payment_succeeded`
-
-4. **Enable the Customer Portal** in the Stripe Dashboard (*Settings → Billing → Customer portal*) so the "Edit subscription" flow works.
-
-> Set `NEXT_PUBLIC_APP_URL` to your deployed domain in production so Stripe redirects back to the right host.
-
-## Available scripts
+## Scripts
 
 | Script | Description |
 | --- | --- |
-| `npm run dev` | Start the development server. |
-| `npm run build` | Create a production build. |
-| `npm start` | Serve the production build. |
-| `npm run lint` | Run ESLint via `next lint`. |
-| `postinstall` | Runs `prisma generate` automatically after installing dependencies. |
+| `npm run dev` | Development server. |
+| `npm run build` | Production build. |
+| `npm start` | Serve the build. |
+| `npm run lint` | ESLint (`next lint`). |
+| `npm run typecheck` | `tsc --noEmit`. |
+| `npm test` | Vitest integration suite. |
+| `npm run db:migrate` | Create and apply a migration. |
+| `npm run db:deploy` | Apply pending migrations in production. |
+| `npm run db:seed` | Seed fixtures. |
+| `npm run db:studio` | Prisma Studio. |
 
-Useful Prisma commands:
+## Tests
+
+The suite runs against a real PostgreSQL database (the same `.env` as the app)
+and proves the rules a UI demo cannot:
+
+- user B cannot read, update or delete user A's note;
+- the free plan stops at 10 notes and Pro is unlimited;
+- blank and oversized input is rejected and text is trimmed.
 
 ```bash
-npx prisma migrate dev      # Create + apply a migration in development
-npx prisma migrate deploy   # Apply pending migrations in production
-npx prisma studio          # Browse the database in a GUI
-npx prisma generate        # Regenerate the client
+npm test
 ```
+
+CI (`.github/workflows/ci.yml`) spins up Postgres 17, applies migrations and runs
+typecheck, tests and the build.
 
 ## Routes
 
 | Route | Access | Description |
 | --- | --- | --- |
-| `/` | Public | Landing page; redirects authenticated users to `/dashboard`. |
-| `/dashboard` | Private | List of the user's notes. |
-| `/dashboard/new` | Private + active subscription | Create a note. |
-| `/dashboard/new/[id]` | Private | Edit an existing note. |
-| `/dashboard/settings` | Private | Name and color scheme. |
-| `/dashboard/billing` | Private | Upgrade or manage the subscription. |
-| `/payment/success` | Private | Post-checkout success page. |
-| `/payment/cancelled` | Private | Post-checkout cancellation page. |
-| `/api/auth/[kindeAuth]` | Public | Kinde auth callback. |
-| `/api/webhook/stripe` | Stripe | Subscription webhook handler. |
-
-### Data model
-
-- **User** — Kinde `id`, name, email, `stripeCustomerId`, `colorScheme`.
-- **Subscription** — Stripe subscription ID, plan, status, billing interval and current period, one per user.
-- **Note** — title, description, timestamps, optional owner.
+| `/` | Public | Landing; signed-in users go to the dashboard. |
+| `/dashboard` | Private | Notes list with plan usage. |
+| `/dashboard/new` | Private | Create a note (blocked at the free limit). |
+| `/dashboard/notes/[id]` | Private | Edit a note you own. |
+| `/dashboard/billing` | Private | Plans and subscription management. |
+| `/dashboard/settings` | Private | Name and colour scheme. |
+| `/api/auth/[kindeAuth]` | Public | Kinde auth handler. |
+| `/api/webhook/stripe` | Stripe | Signature-verified webhook. |
 
 ## Deployment
 
-The app is built for **Vercel** (or any Node.js host):
+1. Import the repo into Vercel (or any Node host).
+2. Add the environment variables above; set `BILLING_PROVIDER="stripe"` and the
+   Stripe keys for real payments.
+3. Run `npm run db:deploy` against the production database.
+4. Point a Stripe webhook at `https://<domain>/api/webhook/stripe` and subscribe
+   to `checkout.session.completed` and `invoice.payment_succeeded`.
 
-1. Push the repo and import it into Vercel.
-2. Add every variable from [Environment variables](#environment-variables), using production values (`KINDE_SITE_URL` and redirect URLs must be the deployed domain).
-3. Run `npx prisma migrate deploy` against the production database.
-4. Create a production Stripe webhook pointing to `https://<your-domain>/api/webhook/stripe` and add its signing secret as `STRIPE_WEBHOOK_SECRET`.
-5. Switch Stripe to live keys and a live price ID.
+## Roadmap
 
-## Known limitations
-
-Tracked honestly so contributions are welcome:
-
-- **Metadata**: `app/layout.tsx` still ships the default "Create Next App" title and description.
-- **Landing page copy**: the hero mentions "AI-powered note sorting", but no AI feature is implemented yet.
-- **No tests or CI** configured.
+- **Now** — foundations: authorisation, plan enforcement, migrations, tests, CI.
+- **Next** — markdown editor with autosave, tags, full-text search, favourites
+  and trash with restore.
+- **Then** — AI summaries and auto-tagging (pluggable provider with an offline
+  fallback), public share links and Markdown export.
+- **Later** — team knowledge base: code snippets with syntax highlighting,
+  language-aware search and collections.
 
 ## License
 
-No license file is included yet. If you intend to open-source this project, add a `LICENSE` (MIT is a common choice) — otherwise all rights are reserved by default.
+All rights reserved. Add a `LICENSE` file if you intend to open-source it.

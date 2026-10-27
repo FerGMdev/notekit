@@ -1,171 +1,190 @@
-import prisma from "@/app/lib/db";
+import { requireUser } from "@/app/lib/auth";
 import {
-  Card,
-  CardTitle,
-  CardHeader,
-  CardContent,
-  CardDescription,
-} from "@/components/ui/card";
-import { CheckCircle } from "lucide-react";
-import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
-import { redirect } from "next/navigation";
-import { headers } from "next/headers";
-import { getStripeSession, stripe } from "@/lib/stripe";
+  cancelMockSubscription,
+  createCheckoutUrl,
+  createPortalUrl,
+  FREE_NOTE_LIMIT,
+  getSubscriptionStatus,
+} from "@/app/lib/billing";
+import { isMockBilling } from "@/app/lib/env";
+import { getBaseUrl } from "@/app/lib/url";
 import {
   StripeSubscriptionCreationButton,
   StripeSubscriptionEditButton,
 } from "@/app/components/SubmitButtons";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { CheckCircle } from "lucide-react";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
-const features = [
-  { name: "Unlimited Notes" },
-  { name: "Unlimited Collections" },
-  { name: "Unlimited Words" },
-  { name: "Unlimited Characters" },
-  { name: "Unlimited Tokens" },
+const proFeatures = [
+  "Unlimited notes",
+  "Full-text search and tags",
+  "AI summaries and auto-tagging",
+  "Public sharing links",
+  "Markdown export",
 ];
 
-/* Resolve the public base URL so Stripe redirects work in every environment. */
-async function getBaseUrl() {
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    return process.env.NEXT_PUBLIC_APP_URL;
-  }
+export default async function BillingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ reason?: string }>;
+}) {
+  const user = await requireUser();
+  const [status, { reason }] = await Promise.all([
+    getSubscriptionStatus(user.id),
+    searchParams,
+  ]);
 
-  const headersList = await headers();
-  const host = headersList.get("host");
-  const protocol = headersList.get("x-forwarded-proto") ?? "http";
+  const isActive = status === "active" || status === "trialing";
 
-  return `${protocol}://${host}`;
-}
-
-async function getData(userId: string) {
-  const data = await prisma.subscription.findUnique({
-    where: {
-      userId: userId,
-    },
-    select: {
-      status: true,
-      user: {
-        select: {
-          stripeCustomerId: true,
-        },
-      },
-    },
-  });
-
-  return data;
-}
-export default async function BillingPage() {
-  const { getUser } = getKindeServerSession();
-  const user = await getUser();
-  const userId = user?.id as string;
-  const data = await getData(userId);
-
-  async function createSubscription() {
+  async function subscribe() {
     "use server";
 
-    const dbUser = await prisma.user.findUnique({
-      where: {
-        id: userId,
-      },
-      select: {
-        stripeCustomerId: true,
-      },
+    const currentUser = await requireUser();
+    const origin = await getBaseUrl();
+
+    const url = await createCheckoutUrl({
+      userId: currentUser.id,
+      email: currentUser.email,
+      origin,
     });
 
-    if (!dbUser?.stripeCustomerId) {
-      throw new Error("Unable to get stripe customer id");
-    }
-
-    const subscriptionUrl = await getStripeSession({
-      customerId: dbUser.stripeCustomerId,
-      domainUrl: await getBaseUrl(),
-      priceId: process.env.STRIPE_PRICE_ID as string,
-    });
-
-    return redirect(subscriptionUrl);
+    redirect(url);
   }
 
-  async function createCustomerPortal() {
+  async function openPortal() {
     "use server";
 
-    const session = await stripe.billingPortal.sessions.create({
-      customer: data?.user.stripeCustomerId as string,
-      return_url: `${await getBaseUrl()}/dashboard/billing`,
-    });
+    const currentUser = await requireUser();
+    const origin = await getBaseUrl();
 
-    return redirect(session.url);
+    const url = await createPortalUrl({ userId: currentUser.id, origin });
+
+    redirect(url);
   }
 
-  if (data?.status === "active") {
-    return (
-      <div className="grid items-start gap-8">
-        <div className="flex items-center justify-between px-2">
-          <div className="grid gap-1">
-            <h3 className="text-3xl font-medium">Subscription</h3>
-            <p className="text-lg text-muted-foreground">
-              Settings related to your subscription.
-            </p>
-          </div>
-        </div>
+  async function cancelMock() {
+    "use server";
 
-        <Card className=" w-full lg:w-2/3">
-          <CardHeader>
-            <CardTitle>Edit Subscription</CardTitle>
-            <CardDescription>
-              Click on the button below to edit your subscription. This will
-              give you the ability to change your plan or cancel your
-              subscription.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form action={createCustomerPortal}>
-              <StripeSubscriptionEditButton />
-            </form>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    const currentUser = await requireUser();
+    await cancelMockSubscription(currentUser.id);
+    revalidatePath("/dashboard/billing");
+    revalidatePath("/dashboard");
   }
 
   return (
-    <div className="max-w-md mx-auto space-y-4">
-      <Card className="flex flex-col gap-4">
-        <CardContent className="py-8">
-          <div>
-            <h3 className="inline-flex px-4 py-1 rounded-full bg-primary/10 text-primary text-sm font-semibold tracking-wide uppercase">
-              Monthly Billing
-            </h3>
-          </div>
+    <div className="grid items-start gap-8">
+      <div className="flex flex-col gap-2 px-2">
+        <h1 className="text-3xl font-medium">Plan &amp; billing</h1>
+        <p className="text-lg text-muted-foreground">
+          {isActive
+            ? "You are on the Pro plan."
+            : `You are on the free plan (${FREE_NOTE_LIMIT} notes).`}
+        </p>
+      </div>
 
-          <div className="mt-4 flex items-baseline text-6xl font-extrabold">
-            $30
-            <span className="text-lg font-medium text-muted-foreground">
-              /month
-            </span>
-          </div>
-          <p className="text-lg mt-5 text-muted-foreground">
-            Write as many notes as you want for $30 a Month.
-          </p>
-        </CardContent>
-        <div className="flex-1 flex flex-col justify-between px-6 pt-6 pb-8 bg-secondary rounded-lg m-1 space-y-6 sm:p-10 sm:pt-6">
-          <ul className="space-y-4">
-            {features.map((feature, index) => (
-              <li key={index} className="flex items-center">
-                <div className="flex-shrink-0">
-                  <CheckCircle className="w-6 h-6 text-green-500" />
-                </div>
-                <p className="ml-3 text-base font-medium leading-none">
-                  {feature.name}
-                </p>
-              </li>
-            ))}
-          </ul>
-
-          <form action={createSubscription}>
-            <StripeSubscriptionCreationButton />
-          </form>
+      {reason === "limit" && (
+        <div className="mx-2 rounded-md border border-primary/30 bg-primary/10 p-3 text-sm">
+          You reached the free plan limit. Upgrade to keep writing.
         </div>
-      </Card>
+      )}
+
+      {isMockBilling && (
+        <div className="mx-2 rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
+          <strong className="text-foreground">Demo billing.</strong> No card is
+          charged: upgrading or cancelling only changes your plan locally.
+        </div>
+      )}
+
+      {isActive ? (
+        <Card className="w-full lg:w-2/3">
+          <CardHeader>
+            <CardTitle>Manage subscription</CardTitle>
+            <CardDescription>
+              {isMockBilling
+                ? "Cancel to go back to the free plan."
+                : "Change your plan or cancel from the Stripe billing portal."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isMockBilling ? (
+              <form action={cancelMock}>
+                <Button type="submit" variant="outline">
+                  Cancel Pro plan
+                </Button>
+              </form>
+            ) : (
+              <form action={openPortal}>
+                <StripeSubscriptionEditButton />
+              </form>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Free</CardTitle>
+              <CardDescription>For trying the product.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-4xl font-extrabold">
+                $0
+                <span className="text-base font-medium text-muted-foreground">
+                  /month
+                </span>
+              </p>
+              <ul className="space-y-2 text-sm">
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  Up to {FREE_NOTE_LIMIT} notes
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  Markdown editor
+                </li>
+              </ul>
+              <Button disabled variant="outline" className="w-full">
+                Your current plan
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="border-primary/40">
+            <CardHeader>
+              <CardTitle>Pro</CardTitle>
+              <CardDescription>For people who live in their notes.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-4xl font-extrabold">
+                $8
+                <span className="text-base font-medium text-muted-foreground">
+                  /month
+                </span>
+              </p>
+              <ul className="space-y-2 text-sm">
+                {proFeatures.map((feature) => (
+                  <li key={feature} className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    {feature}
+                  </li>
+                ))}
+              </ul>
+              <form action={subscribe}>
+                <StripeSubscriptionCreationButton />
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

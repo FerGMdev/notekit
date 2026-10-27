@@ -1,32 +1,26 @@
 import Stripe from "stripe";
+import { env } from "@/app/lib/env";
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
-  apiVersion: "2024-09-30.acacia",
-  typescript: true,
-});
+/**
+ * Stripe is instantiated lazily: `new Stripe(undefined)` throws at import time,
+ * which used to make the whole app crash when billing was not configured.
+ */
 
-export const getStripeSession = async ({
-  priceId,
-  domainUrl,
-  customerId,
-}: {
-  priceId: string;
-  domainUrl: string;
-  customerId: string;
-}) => {
-  const session = await stripe.checkout.sessions.create({
-    customer: customerId,
-    mode: "subscription",
-    billing_address_collection: "auto",
-    line_items: [{ price: priceId, quantity: 1 }],
-    payment_method_types: ["card"],
-    customer_update: {
-      address: "auto",
-      name: "auto",
-    },
-    success_url: `${domainUrl}/payment/success`,
-    cancel_url: `${domainUrl}/payment/cancelled`,
-  });
+export const isStripeConfigured = Boolean(env.STRIPE_SECRET_KEY);
 
-  return session.url as string;
-};
+export const stripe = isStripeConfigured
+  ? new Stripe(env.STRIPE_SECRET_KEY as string, {
+      apiVersion: "2024-09-30.acacia",
+      typescript: true,
+    })
+  : null;
+
+export function requireStripe(): Stripe {
+  if (!stripe) {
+    throw new Error(
+      "Stripe is not configured. Set STRIPE_SECRET_KEY or use BILLING_PROVIDER=mock."
+    );
+  }
+
+  return stripe;
+}
