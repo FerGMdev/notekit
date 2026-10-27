@@ -14,6 +14,7 @@ import {
   FileText,
   LogOutIcon,
   Settings,
+  Sparkles,
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
@@ -24,6 +25,11 @@ export const navItems = [
     icon: FileText,
     label: "Notes",
     href: "/dashboard",
+  },
+  {
+    icon: Sparkles,
+    label: "Ask",
+    href: "/dashboard/ask",
   },
   {
     icon: Trash2,

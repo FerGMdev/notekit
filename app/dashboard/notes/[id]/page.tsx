@@ -1,5 +1,7 @@
 import { requireAppUser } from "@/app/lib/session";
 import { getNote } from "@/app/lib/notes";
+import { aiIsExternal } from "@/app/lib/ai";
+import { getBaseUrl } from "@/app/lib/url";
 import { notFound } from "next/navigation";
 import { NoteEditor } from "./NoteEditor";
 
@@ -18,5 +20,9 @@ export default async function EditNotePage({
     notFound();
   }
 
-  return <NoteEditor note={note} />;
+  const baseUrl = await getBaseUrl();
+
+  return (
+    <NoteEditor note={note} baseUrl={baseUrl} isExternalAi={aiIsExternal} />
+  );
 }

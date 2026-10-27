@@ -21,6 +21,7 @@ model User {
   updatedAt        DateTime      @updatedAt
   Subscription     Subscription?
   Notes            Note[]
+  AiUsage          AiUsage[]
 }
 
 model Subscription {
@@ -43,6 +44,12 @@ model Note {
   tags        String[]  @default([])
   isFavorite  Boolean   @default(false)
   deletedAt   DateTime?
+  // AI output is cached on the note: regenerate explicitly, not on every view.
+  summary          String?
+  summaryUpdatedAt DateTime?
+  // Null while private; a random, unguessable token while shared.
+  shareId     String?   @unique
+  sharedAt    DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -52,4 +59,17 @@ model Note {
   @@index([userId, updatedAt(sort: Desc)])
   @@index([userId, deletedAt, updatedAt(sort: Desc)])
   @@index([userId, isFavorite])
+}
+
+/// Per-user, per-day counter so AI cost cannot run away. Only external
+/// providers consume quota; the built-in heuristic is free.
+model AiUsage {
+  id     String   @id @default(uuid())
+  userId String
+  day    DateTime @db.Date
+  count  Int      @default(0)
+
+  User User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, day])
 }

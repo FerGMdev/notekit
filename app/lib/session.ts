@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { getSessionUser, requireUser, UnauthorizedError } from "./auth";
+import { getSessionUser, UnauthorizedError } from "./auth";
 import { ensureUser } from "./users";
 
 /**

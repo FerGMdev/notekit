@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { requireUser } from "@/app/lib/auth";
 import { requireAppUser } from "@/app/lib/session";
-import { File, Plus, Search, Star } from "lucide-react";
+import { Download, File, Plus, Search, Star } from "lucide-react";
 import { revalidatePath } from "next/cache";
 import { NoteCard } from "@/app/components/NoteCard";
 import {
@@ -42,8 +42,8 @@ export default async function Dashboard({
   const user = await requireAppUser();
   const params = await searchParams;
 
-  const query = (first(params.q) ?? "").trim();
-  const tag = (first(params.tag) ?? "").trim();
+  const query = (first(params.q) ?? "").trim().slice(0, 120);
+  const tag = (first(params.tag) ?? "").trim().slice(0, 24);
   const favoritesOnly = first(params.fav) === "1";
   const sortParam = first(params.sort);
   const sort: SortOption =
@@ -133,18 +133,27 @@ export default async function Dashboard({
           </p>
         </div>
 
-        {canCreate ? (
-          <Button asChild>
-            <Link href="/dashboard/new">
-              <Plus className="mr-2 h-4 w-4" />
-              New note
-            </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" asChild>
+            <a href="/dashboard/export" download>
+              <Download className="mr-2 h-4 w-4" />
+              Export all
+            </a>
           </Button>
-        ) : (
-          <Button asChild>
-            <Link href="/dashboard/billing">Upgrade to Pro</Link>
-          </Button>
-        )}
+
+          {canCreate ? (
+            <Button asChild>
+              <Link href="/dashboard/new">
+                <Plus className="mr-2 h-4 w-4" />
+                New note
+              </Link>
+            </Button>
+          ) : (
+            <Button asChild>
+              <Link href="/dashboard/billing">Upgrade to Pro</Link>
+            </Button>
+          )}
+        </div>
       </div>
 
       {!isPro && (

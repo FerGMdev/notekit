@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import type { NoteSummary } from "@/app/lib/notes";
-import { Edit, Star } from "lucide-react";
+import { Edit, Globe, Star } from "lucide-react";
 import Link from "next/link";
 import { TrashNoteButton } from "./SubmitButtons";
 
@@ -43,6 +43,12 @@ export function NoteCard({
           </Link>
           {note.isFavorite && (
             <Star className="h-4 w-4 shrink-0 fill-yellow-400 text-yellow-400" />
+          )}
+          {note.shareId && (
+            <Globe
+              className="h-4 w-4 shrink-0 text-muted-foreground"
+              aria-label="Public link active"
+            />
           )}
         </div>
 

@@ -3,10 +3,10 @@
 A notes app built as a real product, not a tutorial: private notes, a free plan
 that is enforced on the server, and a codebase you can reason about.
 
-> **Status:** usable product, still growing. Writing, organising and finding
-> notes works end to end; AI assistance, sharing and the team knowledge base
-> are next. Foundations — authorisation, validation, migrations, tests and CI —
-> are in place.
+> **Status:** a working product. Writing, organising, finding, summarising,
+> sharing and exporting notes all work end to end. The next chapter is the team
+> knowledge base (snippets, language-aware search, collections). Foundations —
+> authorisation, validation, migrations, tests and CI — are in place.
 
 ---
 
@@ -21,6 +21,14 @@ that is enforced on the server, and a codebase you can reason about.
 - **Favourites** for the notes you keep coming back to.
 - **Trash with restore** — trashed notes disappear from search and from your
   plan usage, and can be restored or deleted forever.
+- **AI summaries and tag suggestions** that are cached on the note, applied only
+  when you click, and labelled when they may be out of date.
+- **Ask your notes** — natural-language questions answered from your own notes,
+  with links back to the sources.
+- **Public share links** — one note, read-only, revocable at any time, and dead
+  the moment the note is trashed. Search engines are told not to index them.
+- **Markdown export** — download a single note or your whole library with YAML
+  frontmatter, ready for Obsidian, VS Code or a static site.
 - **Authentication** with Kinde, plus a **local demo mode** (`AUTH_PROVIDER=dev`)
   so the app runs without an identity provider — rejected in production.
 - **Notes CRUD** scoped to the signed-in account, with server-side ownership
@@ -33,33 +41,49 @@ that is enforced on the server, and a codebase you can reason about.
 - **Failure UX** — error boundaries, a real 404 page, loading skeletons and
   accessible form feedback.
 
+### AI that works without a key
+
+`app/lib/ai` is written against one small interface. The default provider is a
+deterministic, offline heuristic: an extractive summariser, a keyword tagger and
+a retrieval scorer over your notes. It needs no account, sends nothing anywhere
+and is covered by the test suite. Set `AI_API_KEY` and the same features use any
+OpenAI-compatible endpoint instead — OpenAI, Groq, OpenRouter, a local Ollama
+server or an AI gateway — with the heuristic as the fallback if a request fails.
+
 ## Architecture
 
 ```
 app/
 ├── dashboard/              # Auth-gated area (force-dynamic)
-│   ├── (lists)/            # Dashboard + trash, sharing a loading skeleton
+│   ├── (lists)/            # Dashboard, trash and ask, sharing a loading skeleton
 │   │   ├── page.tsx        # Search, tags, favourites, sorting
+│   │   ├── ask/            # Ask your notes
 │   │   └── trash/          # Restore or delete forever
-│   ├── notes/[id]/         # Markdown editor with autosave
+│   ├── notes/[id]/         # Markdown editor, AI panel, sharing
+│   │   └── export/         # Per-note Markdown download
 │   ├── new/                # Create a note
 │   ├── billing/            # Plans + subscription management
 │   ├── settings/           # Profile + colour scheme
+│   ├── export/             # Whole-library Markdown download
 │   └── layout.tsx          # Session guard + user sync
+├── share/[shareId]/        # Public, read-only, noindex
 ├── lib/
 │   ├── auth.ts             # The only place that knows about the identity provider
 │   ├── session.ts          # Request-scoped signed-in user (mirrored + cached)
 │   ├── notes.ts            # Note domain layer (ownership, filters, trash, plan rules)
+│   ├── sharing.ts          # Create/revoke share tokens, public read
+│   ├── export.ts           # Markdown serialisation with YAML frontmatter
+│   ├── ai/                 # Provider interface, heuristic, OpenAI adapter, quota
 │   ├── billing.ts          # Stripe or mock, chosen by config
 │   ├── users.ts            # User mirroring, welcome note and demo fixtures
 │   ├── env.ts              # Validated, typed environment
-│   ├── url.ts              # Absolute URLs for redirects
+│   ├── url.ts              # Absolute URLs for redirects and share links
 │   └── db.ts               # Prisma singleton
 ├── api/webhook/stripe/     # Signature-verified webhook
 └── page.tsx                # Landing
 ```
 
-### Five decisions worth explaining
+### Seven decisions worth explaining
 
 **1. Authorisation lives next to the data, not in the UI.**
 `app/lib/notes.ts` takes a `userId` on every function and filters by it inside
@@ -94,6 +118,23 @@ through `autosaveNote`, which re-validates with the same Zod schema as the HTTP
 boundary and re-reads the session. The client cannot skip ownership checks, and
 a failed save is visible in the UI instead of silently lost.
 
+**6. AI is an interface with a real offline implementation.**
+`AiProvider` has three methods (`summarize`, `suggestTags`, `answer`) and two
+implementations chosen by configuration. The heuristic provider is the default:
+it runs on the server, costs nothing, is deterministic and is tested. The OpenAI
+adapter swaps in with `AI_API_KEY`; if it times out, errors or returns
+unparseable JSON, the service falls back to the heuristic and the UI shows which
+provider answered. Contrast that with the usual "AI feature that breaks without
+a key" — the demo never depends on a vendor account.
+
+**7. Sharing is a capability, not a boolean.**
+A note is shared by storing a random 16-character token in `Note.shareId`; the
+public page resolves on token **and** `deletedAt IS NULL`, so trashing a note
+kills its link instantly. Revoking sets the token to `null`. Tokens are
+`noindex`, revocable, and never expose the owner or other notes. External AI
+calls are capped per user per day with a single atomic SQL upsert (`AiUsage`),
+because a cost control that races is not a cost control.
+
 ## Security model
 
 | Risk | Mitigation |
@@ -105,6 +146,8 @@ a failed save is visible in the UI instead of silently lost.
 | Misconfiguration | `app/lib/env.ts` validates the environment once and fails loudly. |
 | Demo auth in production | `AUTH_PROVIDER=dev` throws on every request when `NODE_ENV=production`. |
 | Privilege escalation | Dashboard routes are auth-gated server-side; actions re-read the session. |
+| Leaked share link | Random 16-char token, revocable, dead when the note is trashed, `noindex`. |
+| Runaway AI cost | External calls are capped per user per day by an atomic upsert; the heuristic is free. |
 
 ## Stack
 
@@ -113,7 +156,8 @@ a failed save is visible in the UI instead of silently lost.
 | Framework | Next.js 15 (App Router, Server Components, Server Actions) |
 | Language | TypeScript (strict) |
 | Database | PostgreSQL (Neon-compatible) + Prisma |
-| Auth | Kinde |
+| Auth | Kinde (or built-in demo mode) |
+| AI | Built-in heuristic, or any OpenAI-compatible API |
 | Payments | Stripe (optional) |
 | UI | Tailwind CSS + shadcn/ui (Radix) |
 | Tests | Vitest against a real Postgres database |
@@ -145,6 +189,8 @@ Minimum to boot: `DATABASE_URL` and `DIRECT_URL`. Set
 `BILLING_PROVIDER="mock"` to skip Stripe entirely, and leave
 `AUTH_PROVIDER="dev"` to explore the app as a local demo user without signing up.
 Switch to `AUTH_PROVIDER="kinde"` (plus the Kinde variables) for real accounts.
+AI is optional: with no key the built-in heuristic provider powers summaries,
+tags and questions.
 
 ### 3. Create the schema
 
@@ -179,6 +225,11 @@ page links straight into the dashboard as `Demo User`; no account is needed.
 | `STRIPE_SECRET_KEY` | ⬜ | `sk_test_...`; required when billing is `stripe`. |
 | `STRIPE_WEBHOOK_SECRET` | ⬜ | `whsec_...` for `/api/webhook/stripe`. |
 | `STRIPE_PRICE_ID` | ⬜ | Recurring price for the Pro plan. |
+| `AI_PROVIDER` | ⬜ | `auto` (default), `heuristic` or `openai`. `auto` uses the key when present. |
+| `AI_API_KEY` | ⬜ | Enables the OpenAI-compatible provider. Leave empty for the offline heuristic. |
+| `AI_BASE_URL` | ⬜ | Defaults to `https://api.openai.com/v1`; point it at Groq, OpenRouter, Ollama, etc. |
+| `AI_MODEL` | ⬜ | Defaults to `gpt-4o-mini`. |
+| `AI_DAILY_LIMIT` | ⬜ | External AI requests per user per day. Defaults to `50`. |
 | `NEXT_PUBLIC_APP_URL` | ⬜ | Canonical URL; defaults to the request host. |
 
 ## Scripts
@@ -207,7 +258,14 @@ and proves the rules a UI demo cannot:
 - blank and oversized input is rejected and text is trimmed;
 - search matches title and content case-insensitively, and tag filters are exact;
 - trashed notes vanish from lists, search and plan usage until restored;
-- favourites toggle and filter correctly.
+- favourites toggle and filter correctly;
+- the heuristic summariser is deterministic and bounded, tags skip stopwords and
+  existing tags, and retrieval cites the right note;
+- an OpenAI adapter parses JSON tags, falls back to heuristics on nonsense and
+  throws on HTTP errors so the service can degrade;
+- share links resolve publicly, are idempotent, and stop resolving on revoke,
+  trash, or when another account tries to create or revoke them;
+- Markdown export produces parseable frontmatter and safe filenames.
 
 ```bash
 npm test
@@ -222,11 +280,15 @@ typecheck, lint, tests and the build.
 | --- | --- | --- |
 | `/` | Public | Landing; signed-in users go to the dashboard (except in demo mode). |
 | `/dashboard` | Private | Notes list: search, tags, favourites, sorting, plan usage. |
+| `/dashboard/ask` | Private | Ask your notes; answers cite the source notes. |
 | `/dashboard/new` | Private | Create a note (blocked at the free limit). |
-| `/dashboard/notes/[id]` | Private | Markdown editor with autosave. |
+| `/dashboard/notes/[id]` | Private | Markdown editor, autosave, AI panel, share links. |
+| `/dashboard/notes/[id]/export` | Private | Download one note as Markdown. |
+| `/dashboard/export` | Private | Download every note as one Markdown file. |
 | `/dashboard/trash` | Private | Restore or permanently delete trashed notes. |
 | `/dashboard/billing` | Private | Plans and subscription management. |
 | `/dashboard/settings` | Private | Name and colour scheme. |
+| `/share/[shareId]` | Public link | Read-only note, `noindex`, revocable. |
 | `/api/auth/[kindeAuth]` | Public | Kinde auth handler. |
 | `/api/webhook/stripe` | Stripe | Signature-verified webhook. |
 
@@ -234,7 +296,8 @@ typecheck, lint, tests and the build.
 
 1. Import the repo into Vercel (or any Node host).
 2. Add the environment variables above; set `BILLING_PROVIDER="stripe"` and the
-   Stripe keys for real payments.
+   Stripe keys for real payments. Set `AI_API_KEY` only if you want model-backed
+   AI — the heuristic works anywhere.
 3. Run `npm run db:deploy` against the production database.
 4. Point a Stripe webhook at `https://<domain>/api/webhook/stripe` and subscribe
    to `checkout.session.completed` and `invoice.payment_succeeded`.
@@ -244,10 +307,11 @@ typecheck, lint, tests and the build.
 - **Done** — foundations: authorisation, plan enforcement, migrations, tests, CI.
 - **Done** — markdown editor with autosave, tags, search, favourites and trash
   with restore.
-- **Next** — AI summaries and auto-tagging (pluggable provider with an offline
-  heuristic fallback), public share links and Markdown export.
-- **Later** — team knowledge base: code snippets with syntax highlighting,
+- **Done** — AI summaries, auto-tagging and ask-your-notes with a pluggable
+  provider and an offline fallback; revocable public share links; Markdown export.
+- **Next** — team knowledge base: code snippets with syntax highlighting,
   language-aware search and collections.
+- **Later** — onboarding, screenshots and end-to-end tests for the critical flows.
 
 ## License
 

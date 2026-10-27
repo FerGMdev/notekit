@@ -51,6 +51,10 @@ export type NoteSummary = {
   tags: string[];
   isFavorite: boolean;
   deletedAt: Date | null;
+  summary: string | null;
+  summaryUpdatedAt: Date | null;
+  shareId: string | null;
+  sharedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -83,13 +87,17 @@ export class NoteNotFoundError extends Error {
   }
 }
 
-const noteSelect = {
+export const noteSummarySelect = {
   id: true,
   title: true,
   description: true,
   tags: true,
   isFavorite: true,
   deletedAt: true,
+  summary: true,
+  summaryUpdatedAt: true,
+  shareId: true,
+  sharedAt: true,
   createdAt: true,
   updatedAt: true,
 } as const;
@@ -144,7 +152,7 @@ export async function listNotes(
   return prisma.note.findMany({
     where,
     orderBy: orderBy[options.sort ?? "updated"],
-    select: noteSelect,
+    select: noteSummarySelect,
   });
 }
 
@@ -159,7 +167,7 @@ export async function getNote(
       userId,
       ...(options.includeTrashed ? {} : { deletedAt: null }),
     },
-    select: noteSelect,
+    select: noteSummarySelect,
   });
 }
 
@@ -201,7 +209,7 @@ export async function createNote(
       tags: normalizeTags(data.tags),
       userId,
     },
-    select: noteSelect,
+    select: noteSummarySelect,
   });
 }
 
@@ -243,6 +251,21 @@ export async function setFavorite(
   const { count } = await prisma.note.updateMany({
     where: { id: noteId, userId, deletedAt: null },
     data: { isFavorite },
+  });
+
+  if (count === 0) {
+    throw new NoteNotFoundError();
+  }
+}
+
+export async function setNoteSummary(
+  userId: string,
+  noteId: string,
+  summary: string
+): Promise<void> {
+  const { count } = await prisma.note.updateMany({
+    where: { id: noteId, userId, deletedAt: null },
+    data: { summary, summaryUpdatedAt: new Date() },
   });
 
   if (count === 0) {

@@ -39,6 +39,17 @@ const envSchema = z.object({
   STRIPE_SECRET_KEY: optionalString,
   STRIPE_WEBHOOK_SECRET: optionalString,
   STRIPE_PRICE_ID: optionalString,
+
+  /* "heuristic" needs no key and always works; "openai" calls any
+     OpenAI-compatible chat endpoint; "auto" uses the API key when present. */
+  AI_PROVIDER: z.preprocess(
+    emptyToUndefined,
+    z.enum(["auto", "heuristic", "openai"]).optional()
+  ),
+  AI_API_KEY: optionalString,
+  AI_BASE_URL: optionalString,
+  AI_MODEL: optionalString,
+  AI_DAILY_LIMIT: z.coerce.number().int().positive().max(10_000).default(50),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -85,4 +96,26 @@ if (isMockBilling && env.NODE_ENV === "production") {
   console.warn(
     "[billing] BILLING_PROVIDER=mock in production: subscriptions will not be charged."
   );
+}
+
+/* --- AI ------------------------------------------------------------------ */
+
+export const aiProviderName: "heuristic" | "openai" =
+  env.AI_PROVIDER === "heuristic"
+    ? "heuristic"
+    : env.AI_PROVIDER === "openai"
+      ? "openai"
+      : env.AI_API_KEY
+        ? "openai"
+        : "heuristic";
+
+export const aiConfig = {
+  apiKey: env.AI_API_KEY,
+  baseUrl: (env.AI_BASE_URL ?? "https://api.openai.com/v1").replace(/\/+$/, ""),
+  model: env.AI_MODEL ?? "gpt-4o-mini",
+  dailyLimit: env.AI_DAILY_LIMIT,
+} as const;
+
+if (aiProviderName === "openai" && !aiConfig.apiKey) {
+  throw new Error("AI_PROVIDER=openai requires AI_API_KEY.");
 }

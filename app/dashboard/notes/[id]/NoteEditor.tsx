@@ -5,12 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { NoteSummary } from "@/app/lib/notes";
-import { ArrowLeft, Check, Loader2, Save } from "lucide-react";
+import { ArrowLeft, Check, Download, Loader2, Save } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { autosaveNote } from "./actions";
+import { AiPanel } from "./AiPanel";
+import { ShareBox } from "./ShareBox";
 
 type EditorState = {
   title: string;
@@ -26,7 +28,15 @@ const timeFormatter = new Intl.DateTimeFormat("en-US", {
   timeStyle: "short",
 });
 
-export function NoteEditor({ note }: { note: NoteSummary }) {
+export function NoteEditor({
+  note,
+  baseUrl,
+  isExternalAi,
+}: {
+  note: NoteSummary;
+  baseUrl: string;
+  isExternalAi: boolean;
+}) {
   const [title, setTitle] = useState(note.title);
   const [description, setDescription] = useState(note.description);
   const [tagsText, setTagsText] = useState(note.tags.join(", "));
@@ -91,6 +101,19 @@ export function NoteEditor({ note }: { note: NoteSummary }) {
     [flush]
   );
 
+  const applySuggestedTags = useCallback(
+    (next: string[]) => {
+      const merged = Array.from(
+        new Set(next.map((tag) => tag.trim().toLowerCase()).filter(Boolean))
+      ).slice(0, 8);
+      const nextTagsText = merged.join(", ");
+
+      setTagsText(nextTagsText);
+      queueSave({ title, description, tagsText: nextTagsText });
+    },
+    [description, queueSave, title]
+  );
+
   /* Don't lose a pending edit when the tab closes. */
   useEffect(() => {
     const handler = (event: BeforeUnloadEvent) => {
@@ -143,6 +166,13 @@ export function NoteEditor({ note }: { note: NoteSummary }) {
             {status === "idle" &&
               `Last edited ${timeFormatter.format(savedAt)}`}
           </span>
+
+          <Button type="button" size="sm" variant="outline" asChild>
+            <a href={`/dashboard/notes/${note.id}/export`} download>
+              <Download className="mr-2 h-4 w-4" />
+              Export
+            </a>
+          </Button>
 
           <Button
             type="button"
@@ -251,6 +281,27 @@ export function NoteEditor({ note }: { note: NoteSummary }) {
           </span>
           <span>Markdown</span>
         </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <AiPanel
+          noteId={note.id}
+          initialSummary={note.summary}
+          initialSummaryAt={note.summaryUpdatedAt?.getTime() ?? null}
+          lastSavedAt={savedAt.getTime()}
+          tags={tagsText
+            .split(",")
+            .map((tag) => tag.trim().toLowerCase())
+            .filter(Boolean)}
+          isExternal={isExternalAi}
+          onApplyTags={applySuggestedTags}
+        />
+
+        <ShareBox
+          noteId={note.id}
+          initialShareId={note.shareId}
+          baseUrl={baseUrl}
+        />
       </div>
     </div>
   );
