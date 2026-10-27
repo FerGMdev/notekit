@@ -234,8 +234,8 @@ is a view, never a security boundary.
 ### 1. Install
 
 ```bash
-git clone https://github.com/FerGMdev/my-note-saas-app.git
-cd my-note-saas-app
+git clone https://github.com/FerGMdev/notekit.git
+cd notekit
 npm install
 ```
 
