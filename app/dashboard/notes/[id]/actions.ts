@@ -8,9 +8,11 @@ import {
   suggestNoteTags,
 } from "@/app/lib/ai";
 import {
+  CollectionNotFoundError,
   getNote,
   NoteNotFoundError,
   noteInputSchema,
+  setNoteCollection,
   setNoteSummary,
   updateNote,
 } from "@/app/lib/notes";
@@ -108,7 +110,7 @@ export async function suggestTagsAction(
     if (tags.length === 0) {
       return {
         ok: false,
-        error: "No new tags suggested — this note already covers its topics.",
+        error: "No new tags suggested — this item already covers its topics.",
       };
     }
 
@@ -125,9 +127,7 @@ export async function suggestTagsAction(
 
 export type ShareResult =
   | { ok: true; shareId: string }
-  | { ok: false; error: string };
-
-export async function createShareAction(noteId: string): Promise<ShareResult> {
+  | { ok: false; error: string };export async function createShareAction(noteId: string): Promise<ShareResult> {
   const user = await requireUser();
 
   try {
@@ -155,6 +155,34 @@ export async function revokeShareAction(noteId: string): Promise<ShareResult> {
   } catch (error) {
     if (error instanceof NoteNotFoundError) {
       return { ok: false, error: "This note no longer exists." };
+    }
+
+    throw error;
+  }
+}
+
+export type CollectionResult = { ok: true } | { ok: false; error: string };
+
+/** Called when the collection picker changes. Kept separate from autosave so a
+ * collection cannot be moved by a stale editor payload. */
+export async function setNoteCollectionAction(
+  noteId: string,
+  collectionId: string | null
+): Promise<CollectionResult> {
+  const user = await requireUser();
+
+  try {
+    await setNoteCollection(user.id, noteId, collectionId);
+    revalidatePath("/dashboard", "layout");
+
+    return { ok: true };
+  } catch (error) {
+    if (error instanceof NoteNotFoundError) {
+      return { ok: false, error: "This item no longer exists." };
+    }
+
+    if (error instanceof CollectionNotFoundError) {
+      return { ok: false, error: "That collection no longer exists." };
     }
 
     throw error;

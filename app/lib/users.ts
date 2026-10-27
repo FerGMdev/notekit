@@ -1,6 +1,6 @@
 import prisma from "./db";
 import type { SessionUser } from "./auth";
-import { ensureStripeCustomer, FREE_NOTE_LIMIT } from "./billing";
+import { ensureStripeCustomer } from "./billing";
 import { isDevAuth } from "./env";
 
 const WELCOME_NOTE = {
@@ -10,13 +10,14 @@ const WELCOME_NOTE = {
 This is your first note. A few things you can do:
 
 - **Edit** it with the pencil icon, or move it to trash once you are done.
-- Create as many notes as you need: the free plan allows ${FREE_NOTE_LIMIT}.
-- Add **tags** and mark notes as favourites to find them faster.
+- Save reusable code as a **snippet** from the Snippets tab.
+- Group notes and snippets into a **collection** to keep a handbook in one place.
+- Add **tags** and mark items as favourites to find them faster.
 - Switch the colour scheme from **Settings**.
 
 ## Markdown works
 
-Headings, **bold**, *italic*, \`inline code\` and lists all render.
+Headings, **bold**, *italic*, \`inline code\`, tables and lists all render.
 
 \`\`\`bash
 npm run dev
@@ -69,6 +70,29 @@ npm run build
     isFavorite: false,
   },
   {
+    title: "Debounce a function",
+    description: `\`\`\`typescript
+export function debounce<T extends (...args: never[]) => void>(
+  fn: T,
+  wait = 250
+) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
+  return (...args: Parameters<T>) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), wait);
+  };
+}
+\`\`\`
+
+Use it for search inputs: keep the UI responsive and fire the request once
+the user pauses. The language field powers the filter and highlighting.`,
+    tags: ["engineering", "typescript", "frontend"],
+    isFavorite: true,
+    kind: "SNIPPET" as const,
+    language: "typescript",
+  },
+  {
     title: "Reading list",
     description: `# Reading list
 
@@ -116,6 +140,23 @@ export async function ensureUser(user: SessionUser) {
         (note) => ({ ...note, userId: user.id })
       ),
     });
+
+    if (isDevAuth) {
+      const collection = await prisma.collection.create({
+        data: {
+          userId: user.id,
+          name: "Engineering handbook",
+          description: "How we build, review and ship.",
+        },
+        select: { id: true },
+      });
+
+      // The demo should teach the feature without a second click.
+      await prisma.note.updateMany({
+        where: { userId: user.id, tags: { has: "engineering" } },
+        data: { collectionId: collection.id },
+      });
+    }
 
     await ensureStripeCustomer({ userId: user.id, email: user.email });
     return;

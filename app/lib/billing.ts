@@ -2,7 +2,7 @@ import prisma from "./db";
 import { env, isMockBilling } from "./env";
 import { requireStripe } from "@/lib/stripe";
 
-/** Notes a free account can create before upgrading. */
+/** Items a free account can create before upgrading (notes + snippets). */
 export const FREE_NOTE_LIMIT = 10;
 
 const ACTIVE_STATUSES = new Set(["active", "trialing"]);

@@ -617,3 +617,87 @@
 .prose-note img {
   @apply max-w-full rounded-lg;
 }
+
+/* Syntax highlighting (rehype-highlight). A small, theme-aware palette instead
+   of shipping a vendor stylesheet that only understands one background. */
+.prose-note .hljs-comment,
+.prose-note .hljs-quote {
+  @apply italic text-muted-foreground;
+}
+.prose-note .hljs-keyword,
+.prose-note .hljs-selector-tag,
+.prose-note .hljs-literal,
+.prose-note .hljs-doctag {
+  color: hsl(275 55% 38%);
+}
+.prose-note .hljs-string,
+.prose-note .hljs-regexp,
+.prose-note .hljs-attr,
+.prose-note .hljs-addition {
+  color: hsl(150 55% 28%);
+}
+.prose-note .hljs-number,
+.prose-note .hljs-built_in,
+.prose-note .hljs-type,
+.prose-note .hljs-symbol {
+  color: hsl(25 75% 38%);
+}
+.prose-note .hljs-title,
+.prose-note .hljs-section,
+.prose-note .hljs-function .hljs-title,
+.prose-note .hljs-selector-id {
+  color: hsl(215 65% 38%);
+  @apply font-semibold;
+}
+.prose-note .hljs-variable,
+.prose-note .hljs-template-variable,
+.prose-note .hljs-selector-class,
+.prose-note .hljs-attribute {
+  color: hsl(195 65% 32%);
+}
+.prose-note .hljs-meta {
+  @apply text-muted-foreground;
+}
+.prose-note .hljs-deletion {
+  color: hsl(0 65% 45%);
+}
+.prose-note .hljs-emphasis {
+  @apply italic;
+}
+.prose-note .hljs-strong {
+  @apply font-semibold;
+}
+
+.dark .prose-note .hljs-keyword,
+.dark .prose-note .hljs-selector-tag,
+.dark .prose-note .hljs-literal,
+.dark .prose-note .hljs-doctag {
+  color: hsl(275 70% 78%);
+}
+.dark .prose-note .hljs-string,
+.dark .prose-note .hljs-regexp,
+.dark .prose-note .hljs-attr,
+.dark .prose-note .hljs-addition {
+  color: hsl(150 55% 68%);
+}
+.dark .prose-note .hljs-number,
+.dark .prose-note .hljs-built_in,
+.dark .prose-note .hljs-type,
+.dark .prose-note .hljs-symbol {
+  color: hsl(30 80% 70%);
+}
+.dark .prose-note .hljs-title,
+.dark .prose-note .hljs-section,
+.dark .prose-note .hljs-function .hljs-title,
+.dark .prose-note .hljs-selector-id {
+  color: hsl(210 85% 75%);
+}
+.dark .prose-note .hljs-variable,
+.dark .prose-note .hljs-template-variable,
+.dark .prose-note .hljs-selector-class,
+.dark .prose-note .hljs-attribute {
+  color: hsl(190 75% 72%);
+}
+.dark .prose-note .hljs-deletion {
+  color: hsl(0 75% 72%);
+}

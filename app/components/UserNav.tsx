@@ -10,8 +10,10 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
+  Code2,
   CreditCard,
   FileText,
+  FolderOpen,
   LogOutIcon,
   Settings,
   Sparkles,
@@ -25,6 +27,16 @@ export const navItems = [
     icon: FileText,
     label: "Notes",
     href: "/dashboard",
+  },
+  {
+    icon: Code2,
+    label: "Snippets",
+    href: "/dashboard/snippets",
+  },
+  {
+    icon: FolderOpen,
+    label: "Collections",
+    href: "/dashboard/collections",
   },
   {
     icon: Sparkles,

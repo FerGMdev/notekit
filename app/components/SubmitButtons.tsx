@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Loader2, Trash } from "lucide-react";
+import { Loader2, Trash, Trash2 } from "lucide-react";
 import { useFormStatus } from "react-dom";
 
 export default function SubmitButtons() {
@@ -85,6 +85,36 @@ export function TrashNoteButton() {
         <Loader2 className="h-4 w-4 animate-spin" />
       ) : (
         <Trash className="h-4 w-4" />
+      )}
+    </Button>
+  );
+}
+
+export function DeleteCollectionButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      type="submit"
+      disabled={pending}
+      title="Delete collection"
+      aria-label="Delete collection"
+      onClick={(event) => {
+        if (
+          !window.confirm(
+            "Delete this collection? The notes and snippets inside are kept."
+          )
+        ) {
+          event.preventDefault();
+        }
+      }}
+    >
+      {pending ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <Trash2 className="h-4 w-4" />
       )}
     </Button>
   );

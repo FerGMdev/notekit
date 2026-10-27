@@ -21,7 +21,32 @@ model User {
   updatedAt        DateTime      @updatedAt
   Subscription     Subscription?
   Notes            Note[]
+  Collections      Collection[]
   AiUsage          AiUsage[]
+}
+
+/// A collection is a lightweight folder for notes and snippets. It is not a
+/// permission boundary: every row still filters by `userId`.
+model Collection {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  User   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  Notes  Note[]
+
+  @@unique([userId, name])
+  @@index([userId, updatedAt(sort: Desc)])
+}
+
+/// Notes and snippets share one entity on purpose: tabs, search, favourites,
+/// trash, sharing, export and AI all work for both without a second pipeline.
+enum NoteKind {
+  NOTE
+  SNIPPET
 }
 
 model Subscription {
@@ -41,6 +66,9 @@ model Note {
   id          String    @id @default(uuid())
   title       String
   description String
+  kind        NoteKind  @default(NOTE)
+  // Set for snippets only: drives the language filter and the badge.
+  language    String?
   tags        String[]  @default([])
   isFavorite  Boolean   @default(false)
   deletedAt   DateTime?
@@ -56,9 +84,15 @@ model Note {
   User   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId String
 
+  Collection   Collection? @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+  collectionId String?
+
   @@index([userId, updatedAt(sort: Desc)])
   @@index([userId, deletedAt, updatedAt(sort: Desc)])
   @@index([userId, isFavorite])
+  @@index([userId, kind, updatedAt(sort: Desc)])
+  @@index([userId, language])
+  @@index([userId, collectionId])
 }
 
 /// Per-user, per-day counter so AI cost cannot run away. Only external

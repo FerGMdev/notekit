@@ -35,9 +35,9 @@ export default async function NewNotePage() {
         <CardHeader>
           <CardTitle>Free plan limit reached</CardTitle>
           <CardDescription>
-            You have {noteCount} of {FREE_NOTE_LIMIT} notes
-            {isPro ? "" : " on the free plan"}. Upgrade to Pro for unlimited
-            notes.
+            You have {noteCount} of {FREE_NOTE_LIMIT} items
+            {isPro ? "" : " on the free plan"}. Notes and snippets share the
+            limit; upgrade to Pro for unlimited items.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -79,7 +79,7 @@ export default async function NewNotePage() {
     <NoteForm
       action={createNoteAction}
       heading="Create a new note"
-      description="Capture an idea, a meeting or a snippet."
+      description="Capture an idea, a meeting or a reference. Code belongs in a snippet."
       submitLabel="Create note"
     />
   );

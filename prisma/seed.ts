@@ -102,6 +102,28 @@ npx prisma migrate deploy
 
 **Budget:** ~$450 including flights.`,
   },
+  {
+    title: "Fetch with timeout",
+    description: `\`\`\`typescript
+export async function fetchWithTimeout(
+  url: string,
+  timeoutMs = 5_000
+) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, { signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+\`\`\`
+
+Abort long requests instead of hoping the network behaves.`,
+    kind: "SNIPPET" as const,
+    language: "typescript",
+  },
 ];
 
 const proUserNotes = [
@@ -127,7 +149,7 @@ Hypothesis: a free tier with a hard limit converts better than a trial.
 
 | Plan | Price | Limit |
 | --- | --- | --- |
-| Free | $0 | 10 notes |
+| Free | $0 | 10 items |
 | Pro | $8/mo | Unlimited |
 
 Measure: 7-day activation and free→pro conversion.`,
@@ -142,6 +164,7 @@ const noteMeta: Record<string, { tags: string[]; isFavorite?: boolean }> = {
   "API design principles": { tags: ["engineering", "architecture"] },
   "Interview notes — backend candidate": { tags: ["hiring"] },
   "Trip planning — Oaxaca": { tags: ["personal", "travel"] },
+  "Fetch with timeout": { tags: ["engineering", "typescript"], isFavorite: true },
   "Q3 retro": { tags: ["engineering", "process"], isFavorite: true },
   "Pricing experiments": { tags: ["product", "pricing"] },
 };
@@ -158,6 +181,10 @@ async function main() {
   const freeUser = await seedUser(FREE_USER_ID, "free@example.com", "Free User");
   const proUser = await seedUser(PRO_USER_ID, "pro@example.com", "Pro User");
 
+  await prisma.collection.deleteMany({
+    where: { userId: { in: [freeUser.id, proUser.id] } },
+  });
+
   await prisma.note.deleteMany({
     where: { userId: { in: [freeUser.id, proUser.id] } },
   });
@@ -169,6 +196,20 @@ async function main() {
       tags: noteMeta[note.title]?.tags ?? [],
       isFavorite: noteMeta[note.title]?.isFavorite ?? false,
     })),
+  });
+
+  const handbook = await prisma.collection.create({
+    data: {
+      userId: freeUser.id,
+      name: "Engineering handbook",
+      description: "How we build, review and ship.",
+    },
+    select: { id: true },
+  });
+
+  await prisma.note.updateMany({
+    where: { userId: freeUser.id, tags: { has: "engineering" } },
+    data: { collectionId: handbook.id },
   });
 
   await prisma.note.createMany({

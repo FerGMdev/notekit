@@ -26,10 +26,23 @@ describe("noteToMarkdown", () => {
 
     expect(markdown.startsWith("---\n")).toBe(true);
     expect(markdown).toContain('title: "Deploy runbook"');
+    expect(markdown).toContain("kind: note");
     expect(markdown).toContain('tags: ["ops", "engineering"]');
     expect(markdown).toContain("created: 2026-01-02T03:04:05.000Z");
     expect(markdown).toContain("updated: 2026-02-03T04:05:06.000Z");
     expect(markdown).toContain("Run the migration first.");
+  });
+
+  it("marks snippets with their language", () => {
+    const markdown = noteToMarkdown({
+      ...base,
+      title: "Debounce",
+      kind: "SNIPPET",
+      language: "typescript",
+    });
+
+    expect(markdown).toContain("kind: snippet");
+    expect(markdown).toContain("language: typescript");
   });
 
   it("escapes quotes so the frontmatter stays valid", () => {
@@ -67,20 +80,20 @@ describe("filenames", () => {
 });
 
 describe("bundle", () => {
-  it("summarises the export and includes every note", () => {
+  it("summarises the export and includes every item", () => {
     const bundle = notesToMarkdownBundle(
       [base, { ...base, title: "Second note" }],
       new Date("2026-03-01T00:00:00.000Z")
     );
 
     expect(bundle).toContain("# Notekit export");
-    expect(bundle).toContain("2 notes");
+    expect(bundle).toContain("2 items");
     expect(bundle).toContain('title: "Deploy runbook"');
     expect(bundle).toContain('title: "Second note"');
     expect(bundle.match(/^---$/gm)?.length).toBe(4);
   });
 
-  it("says one note when there is one note", () => {
-    expect(notesToMarkdownBundle([base])).toContain("1 note");
+  it("says one item when there is one item", () => {
+    expect(notesToMarkdownBundle([base])).toContain("1 item");
   });
 });

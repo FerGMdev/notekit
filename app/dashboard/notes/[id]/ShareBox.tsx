@@ -107,8 +107,8 @@ export function ShareBox({
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
           {shareId
-            ? "Anyone with the link can read this note. Editing stays private."
-            : "This note is private. Create a read-only link to share it."}
+            ? "Anyone with the link can read this item. Editing stays private."
+            : "This item is private. Create a read-only link to share it."}
         </p>
       </div>
 

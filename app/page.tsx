@@ -10,18 +10,18 @@ import { redirect } from "next/navigation";
 const highlights = [
   {
     icon: PenLine,
-    title: "Write without friction",
-    body: "A distraction-free editor that saves as you type. Markdown keeps your notes portable forever.",
+    title: "Write and keep code",
+    body: "A distraction-free editor for notes and syntax-highlighted snippets. Markdown keeps everything portable forever.",
   },
   {
     icon: Search,
     title: "Find anything",
-    body: "Search across titles and content, filter by tag, and keep what matters one click away in favourites.",
+    body: "Search titles, notes and code, filter by tag or language, and keep what matters one click away in favourites.",
   },
   {
     icon: Lock,
     title: "Private by default",
-    body: "Every note belongs to exactly one account, enforced in the database query — not hidden behind a button.",
+    body: "Every note and snippet belongs to exactly one account, enforced in the database query — not hidden behind a button.",
   },
 ];
 
@@ -41,13 +41,14 @@ export default async function Home() {
         </span>
 
         <h1 className="mt-6 text-4xl font-extrabold tracking-tight sm:text-6xl">
-          Notes that stay{" "}
+          Notes and code that stay{" "}
           <span className="text-primary">out of your way</span>
         </h1>
 
         <p className="mx-auto mt-6 max-w-xl text-lg text-muted-foreground sm:text-xl">
-          A fast, private place to write. Markdown, tags and search that work,
-          with a free plan that is actually usable.
+          A fast, private place for notes and reusable snippets. Markdown, tags,
+          language-aware search and collections that actually work — with a free
+          plan that is usable.
         </p>
 
         <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -70,7 +71,7 @@ export default async function Home() {
         <p className="mt-4 text-sm text-muted-foreground">
           {isDemo
             ? "You are signed in as a local demo user."
-            : `No credit card. ${FREE_NOTE_LIMIT} notes on the free plan.`}
+            : `No credit card. ${FREE_NOTE_LIMIT} notes and snippets on the free plan.`}
         </p>
       </div>
 

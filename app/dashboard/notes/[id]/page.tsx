@@ -1,5 +1,5 @@
 import { requireAppUser } from "@/app/lib/session";
-import { getNote } from "@/app/lib/notes";
+import { getNote, listCollections } from "@/app/lib/notes";
 import { aiIsExternal } from "@/app/lib/ai";
 import { getBaseUrl } from "@/app/lib/url";
 import { notFound } from "next/navigation";
@@ -21,8 +21,14 @@ export default async function EditNotePage({
   }
 
   const baseUrl = await getBaseUrl();
+  const collections = await listCollections(user.id);
 
   return (
-    <NoteEditor note={note} baseUrl={baseUrl} isExternalAi={aiIsExternal} />
+    <NoteEditor
+      note={note}
+      collections={collections.map(({ id, name }) => ({ id, name }))}
+      baseUrl={baseUrl}
+      isExternalAi={aiIsExternal}
+    />
   );
 }

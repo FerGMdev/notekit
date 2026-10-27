@@ -1,8 +1,9 @@
 import { Markdown } from "@/app/components/Markdown";
 import { Button } from "@/components/ui/button";
 import { getSharedNote } from "@/app/lib/sharing";
+import { languageLabel } from "@/app/lib/languages";
 import { stripMarkdown } from "@/app/lib/ai/types";
-import { ArrowRight, Globe } from "lucide-react";
+import { ArrowRight, Code2, Globe } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -62,7 +63,13 @@ export default async function SharedNotePage({
     <main className="container max-w-3xl py-10">
       <p className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
         <Globe className="h-3.5 w-3.5" />
-        Shared note · read-only
+        {note.kind === "SNIPPET" ? "Shared snippet" : "Shared note"} · read-only
+        {note.kind === "SNIPPET" && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 normal-case tracking-normal text-primary">
+            <Code2 className="h-3 w-3" />
+            {languageLabel(note.language)}
+          </span>
+        )}
       </p>
 
       <h1 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">

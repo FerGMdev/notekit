@@ -26,8 +26,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 const proFeatures = [
-  "Unlimited notes",
-  "Full-text search and tags",
+  "Unlimited notes and snippets",
+  "Language-aware snippet search",
+  "Collections for handbooks",
   "AI summaries and auto-tagging",
   "Public sharing links",
   "Markdown export",
@@ -88,7 +89,7 @@ export default async function BillingPage({
         <p className="text-lg text-muted-foreground">
           {isActive
             ? "You are on the Pro plan."
-            : `You are on the free plan (${FREE_NOTE_LIMIT} notes).`}
+            : `You are on the free plan (${FREE_NOTE_LIMIT} items).`}
         </p>
       </div>
 
@@ -146,7 +147,7 @@ export default async function BillingPage({
               <ul className="space-y-2 text-sm">
                 <li className="flex items-center gap-2">
                   <CheckCircle className="h-4 w-4 text-green-500" />
-                  Up to {FREE_NOTE_LIMIT} notes
+                  Up to {FREE_NOTE_LIMIT} items
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle className="h-4 w-4 text-green-500" />

@@ -9,7 +9,8 @@ import type { NoteSummary } from "./notes";
 type ExportableNote = Pick<
   NoteSummary,
   "title" | "description" | "tags" | "createdAt" | "updatedAt"
->;
+> &
+  Partial<Pick<NoteSummary, "kind" | "language">>;
 
 export function slugify(value: string): string {
   const slug = value
@@ -36,6 +37,10 @@ export function noteToMarkdown(note: ExportableNote): string {
   const frontmatter = [
     "---",
     `title: ${JSON.stringify(note.title)}`,
+    `kind: ${note.kind === "SNIPPET" ? "snippet" : "note"}`,
+    ...(note.kind === "SNIPPET" && note.language
+      ? [`language: ${note.language}`]
+      : []),
     `tags: [${note.tags.map((tag) => JSON.stringify(tag)).join(", ")}]`,
     `created: ${note.createdAt.toISOString()}`,
     `updated: ${note.updatedAt.toISOString()}`,
@@ -53,10 +58,10 @@ export function notesToMarkdownBundle(
     "# Notekit export",
     "",
     `Exported ${exportedAt.toISOString()} · ${notes.length} ${
-      notes.length === 1 ? "note" : "notes"
+      notes.length === 1 ? "item" : "items"
     }`,
     "",
-    "Each note starts with YAML frontmatter, so the file can be imported into any Markdown tool.",
+    "Each item starts with YAML frontmatter, so the file can be imported into any Markdown tool.",
     "",
   ].join("\n");
 

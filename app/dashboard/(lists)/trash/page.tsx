@@ -61,8 +61,8 @@ export default async function TrashPage() {
       <div className="grid gap-2 px-2">
         <h1 className="text-3xl md:text-4xl">Trash</h1>
         <p className="text-muted-foreground">
-          Trashed notes are hidden from search and do not count towards your
-          plan. Restore them, or delete them forever.
+          Trashed notes and snippets are hidden from search and do not count
+          towards your plan. Restore them, or delete them forever.
         </p>
       </div>
 
@@ -84,7 +84,14 @@ export default async function TrashPage() {
               className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="min-w-0">
-                <h2 className="truncate text-xl font-semibold">{note.title}</h2>
+                <h2 className="truncate text-xl font-semibold">
+                  {note.kind === "SNIPPET" && (
+                    <span className="mr-2 rounded-full bg-primary/10 px-2 py-0.5 align-middle text-xs font-medium text-primary">
+                      Snippet
+                    </span>
+                  )}
+                  {note.title}
+                </h2>
                 <p className="text-sm text-muted-foreground">
                   Deleted{" "}
                   {note.deletedAt ? dateFormatter.format(note.deletedAt) : ""}

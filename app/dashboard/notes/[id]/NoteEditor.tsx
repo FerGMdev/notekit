@@ -5,13 +5,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { NoteSummary } from "@/app/lib/notes";
-import { ArrowLeft, Check, Download, Loader2, Save } from "lucide-react";
+import { languageLabel } from "@/app/lib/languages";
+import { ArrowLeft, Check, Code2, Download, Loader2, Save } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
 import { autosaveNote } from "./actions";
 import { AiPanel } from "./AiPanel";
+import { CollectionPicker } from "./CollectionPicker";
 import { ShareBox } from "./ShareBox";
 
 type EditorState = {
@@ -30,13 +33,16 @@ const timeFormatter = new Intl.DateTimeFormat("en-US", {
 
 export function NoteEditor({
   note,
+  collections,
   baseUrl,
   isExternalAi,
 }: {
   note: NoteSummary;
+  collections: { id: string; name: string }[];
   baseUrl: string;
   isExternalAi: boolean;
 }) {
+  const snippet = note.kind === "SNIPPET";
   const [title, setTitle] = useState(note.title);
   const [description, setDescription] = useState(note.description);
   const [tagsText, setTagsText] = useState(note.tags.join(", "));
@@ -138,14 +144,15 @@ export function NoteEditor({
   const wordCount = description.trim()
     ? description.trim().split(/\s+/).length
     : 0;
+  const lineCount = description ? description.split("\n").length : 0;
 
   return (
     <div className="grid gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Button variant="ghost" size="sm" asChild className="-ml-2 w-fit">
-          <Link href="/dashboard">
+          <Link href={snippet ? "/dashboard/snippets" : "/dashboard"}>
             <ArrowLeft className="mr-2 h-4 w-4" />
-            All notes
+            {snippet ? "All snippets" : "All notes"}
           </Link>
         </Button>
 
@@ -193,6 +200,13 @@ export function NoteEditor({
       )}
 
       <div className="grid gap-4 rounded-lg border bg-card p-4 sm:p-6">
+        {snippet && (
+          <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-primary">
+            <Code2 className="h-3.5 w-3.5" />
+            {languageLabel(note.language)} snippet
+          </p>
+        )}
+
         <Input
           value={title}
           onChange={(event) => {
@@ -204,32 +218,40 @@ export function NoteEditor({
             });
           }}
           maxLength={120}
-          placeholder="Note title"
-          aria-label="Note title"
+          placeholder={snippet ? "Snippet title" : "Note title"}
+          aria-label={snippet ? "Snippet title" : "Note title"}
           className="border-none px-0 text-2xl font-semibold shadow-none focus-visible:ring-0"
         />
 
-        <div className="grid gap-2">
-          <Label htmlFor="tags" className="text-xs uppercase tracking-wide text-muted-foreground">
-            Tags
-          </Label>
-          <Input
-            id="tags"
-            value={tagsText}
-            onChange={(event) => {
-              setTagsText(event.target.value);
-              queueSave({
-                title,
-                description,
-                tagsText: event.target.value,
-              });
-            }}
-            placeholder="product, ideas, reading"
-            aria-describedby="tags-help"
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-2">
+            <Label htmlFor="tags" className="text-xs uppercase tracking-wide text-muted-foreground">
+              Tags
+            </Label>
+            <Input
+              id="tags"
+              value={tagsText}
+              onChange={(event) => {
+                setTagsText(event.target.value);
+                queueSave({
+                  title,
+                  description,
+                  tagsText: event.target.value,
+                });
+              }}
+              placeholder="product, ideas, reading"
+              aria-describedby="tags-help"
+            />
+            <p id="tags-help" className="text-xs text-muted-foreground">
+              Comma separated. Up to 8 tags.
+            </p>
+          </div>
+
+          <CollectionPicker
+            noteId={note.id}
+            collections={collections}
+            value={note.collectionId}
           />
-          <p id="tags-help" className="text-xs text-muted-foreground">
-            Comma separated. Up to 8 tags.
-          </p>
         </div>
 
         <div className="flex items-center gap-1 border-b pb-2">
@@ -262,13 +284,22 @@ export function NoteEditor({
                 tagsText,
               });
             }}
-            placeholder="Start writing… Markdown is supported."
-            aria-label="Note content"
+            placeholder={
+              snippet
+                ? '```typescript\n// your code\n```'
+                : "Start writing… Markdown is supported."
+            }
+            aria-label={snippet ? "Snippet content" : "Note content"}
             className="min-h-[55vh] resize-y border-none px-0 font-mono text-sm shadow-none focus-visible:ring-0"
           />
         ) : (
           <div className="prose-note min-h-[55vh]">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              rehypePlugins={[
+                [rehypeHighlight, { detect: false, plainText: ["plaintext"] }],
+              ]}
+            >
               {description}
             </ReactMarkdown>
           </div>
@@ -276,10 +307,12 @@ export function NoteEditor({
 
         <div className="flex items-center justify-between border-t pt-3 text-xs text-muted-foreground">
           <span>
-            {wordCount} {wordCount === 1 ? "word" : "words"} ·{" "}
-            {description.length} characters
+            {snippet
+              ? `${lineCount} ${lineCount === 1 ? "line" : "lines"}`
+              : `${wordCount} ${wordCount === 1 ? "word" : "words"}`}{" "}
+            · {description.length} characters
           </span>
-          <span>Markdown</span>
+          <span>Markdown{snippet ? " · highlighted" : ""}</span>
         </div>
       </div>
 

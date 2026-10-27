@@ -9,7 +9,7 @@ import { AlertCircle, FileText, Search, Sparkles } from "lucide-react";
 import Link from "next/link";
 
 export const metadata = {
-  title: "Ask your notes — Notekit",
+  title: "Ask your library — Notekit",
 };
 
 const EXAMPLES = [
@@ -56,11 +56,11 @@ export default async function AskPage({
       <div className="grid gap-2">
         <h1 className="flex items-center gap-2 text-3xl md:text-4xl">
           <Sparkles className="h-7 w-7 text-primary" />
-          Ask your notes
+          Ask your library
         </h1>
         <p className="text-muted-foreground">
-          Answers come from your own notes, with citations — not from the open
-          internet.
+          Answers come from your own notes and snippets, with citations — not
+          from the open internet.
         </p>
       </div>
 
@@ -80,7 +80,7 @@ export default async function AskPage({
       </form>
 
       <p className="text-xs text-muted-foreground">
-        {noteCount} {noteCount === 1 ? "note" : "notes"} searched ·{" "}
+        {noteCount} {noteCount === 1 ? "item" : "items"} searched ·{" "}
         {aiIsExternal
           ? "model-powered answers"
           : "built-in provider, no API key required"}
@@ -143,7 +143,8 @@ export default async function AskPage({
           </div>
           {noteCount === 0 && (
             <p className="text-sm text-muted-foreground">
-              You need at least one note before there is anything to ask about.
+              You need at least one note or snippet before there is anything to
+              ask about.
             </p>
           )}
         </Card>
