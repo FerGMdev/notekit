@@ -1,5 +1,6 @@
 import { NoteForm } from "@/app/components/NoteForm";
 import { requireUser } from "@/app/lib/auth";
+import { requireAppUser } from "@/app/lib/session";
 import { FREE_NOTE_LIMIT, hasActiveSubscription } from "@/app/lib/billing";
 import {
   canCreateNote,
@@ -20,7 +21,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export default async function NewNotePage() {
-  const user = await requireUser();
+  const user = await requireAppUser();
   const allowed = await canCreateNote(user.id);
 
   if (!allowed) {
@@ -57,6 +58,10 @@ export default async function NewNotePage() {
       await createNote(currentUser.id, {
         title: formData.get("title"),
         description: formData.get("description"),
+        tags: String(formData.get("tags") ?? "")
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter(Boolean),
       });
     } catch (error) {
       if (error instanceof NoteLimitError) {

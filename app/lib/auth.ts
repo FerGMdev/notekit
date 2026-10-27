@@ -1,4 +1,5 @@
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
+import { isDevAuth } from "./env";
 
 /**
  * The single place the app asks "who is calling?".
@@ -21,8 +22,25 @@ export class UnauthorizedError extends Error {
   }
 }
 
+const DEV_USER: SessionUser = {
+  id: "dev-user",
+  email: "demo@notekit.local",
+  name: "Demo User",
+  picture: null,
+};
+
 /** Single read of the provider session, so swapping providers is localised. */
 export const getSessionUser = async (): Promise<SessionUser | null> => {
+  if (isDevAuth) {
+    /* Fail closed: even if a build slipped through, requests never use the
+       demo identity in production. */
+    if (process.env.NODE_ENV === "production") {
+      throw new UnauthorizedError("Dev auth is disabled in production.");
+    }
+
+    return DEV_USER;
+  }
+
   const { getUser } = getKindeServerSession();
   const user = await getUser();
 

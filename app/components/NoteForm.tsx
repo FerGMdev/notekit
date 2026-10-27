@@ -60,12 +60,25 @@ export function NoteForm({
               required
               id="description"
               name="description"
-              className="min-h-[320px]"
+              className="min-h-[320px] font-mono text-sm"
               placeholder="Write your note here..."
               defaultValue={defaultValues?.description}
             />
             <p className="text-xs text-muted-foreground">
               Markdown is supported.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-y-2">
+            <Label htmlFor="tags">Tags</Label>
+            <Input
+              id="tags"
+              type="text"
+              name="tags"
+              placeholder="product, ideas, reading"
+            />
+            <p className="text-xs text-muted-foreground">
+              Comma separated. Up to 8 tags.
             </p>
           </div>
         </CardContent>

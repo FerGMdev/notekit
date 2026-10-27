@@ -5,28 +5,30 @@ import {
   RegisterLink,
   LoginLink,
 } from "@kinde-oss/kinde-auth-nextjs/components";
-import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import UserNav from "@/app/components/UserNav";
+import { getSessionUser } from "@/app/lib/auth";
+import { isDevAuth } from "@/app/lib/env";
 
 export async function Navbar() {
-  const { isAuthenticated, getUser } = getKindeServerSession();
-  const user = await getUser();
+  const user = await getSessionUser();
 
   return (
     <nav className="border-b bg-background h-[10vh] flex items-center justify-center">
       <div className="container flex items-center justify-between">
-        <Link href="/">
+        <Link href="/" aria-label="Notekit home">
           <h1 className="text-3xl font-bold">
-            Note<span className="text-primary">Saas</span>
+            Note<span className="text-primary">kit</span>
           </h1>
         </Link>
         <div className="flex items-center gap-x-4">
           <ThemeToggle />
-          {(await isAuthenticated()) ? (
+
+          {user ? (
             <UserNav
-              user={user?.given_name as string}
-              email={user?.email as string}
-              imageUrl={user?.picture as string}
+              user={user.name}
+              email={user.email}
+              imageUrl={user.picture ?? ""}
+              isDemo={isDevAuth}
             />
           ) : (
             <div className="flex items-center gap-x-5">

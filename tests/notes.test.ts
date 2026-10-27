@@ -5,7 +5,7 @@ import prisma from "@/app/lib/db";
 import {
   countNotes,
   createNote,
-  deleteNote,
+  deleteNotePermanently,
   getNote,
   NoteLimitError,
   NoteNotFoundError,
@@ -83,7 +83,7 @@ describe("note ownership", () => {
       description: "Still here",
     });
 
-    await expect(deleteNote(strangerId, note.id)).rejects.toBeInstanceOf(
+    await expect(deleteNotePermanently(strangerId, note.id)).rejects.toBeInstanceOf(
       NoteNotFoundError
     );
 
@@ -103,7 +103,7 @@ describe("note ownership", () => {
 
     expect((await getNote(ownerId, note.id))?.title).toBe("Mine, edited");
 
-    await deleteNote(ownerId, note.id);
+    await deleteNotePermanently(ownerId, note.id);
 
     expect(await getNote(ownerId, note.id)).toBeNull();
   });

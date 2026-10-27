@@ -9,15 +9,26 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { CreditCard, Home, LogOutIcon, Settings } from "lucide-react";
+import {
+  CreditCard,
+  FileText,
+  LogOutIcon,
+  Settings,
+  Trash2,
+} from "lucide-react";
 import Link from "next/link";
 import { LogoutLink } from "@kinde-oss/kinde-auth-nextjs/components";
 
 export const navItems = [
   {
-    icon: Home,
-    label: "Home",
+    icon: FileText,
+    label: "Notes",
     href: "/dashboard",
+  },
+  {
+    icon: Trash2,
+    label: "Trash",
+    href: "/dashboard/trash",
   },
   {
     icon: Settings,
@@ -35,18 +46,22 @@ export default function UserNav({
   user,
   email,
   imageUrl,
+  isDemo = false,
 }: {
   user: string;
   email: string;
   imageUrl: string;
+  isDemo?: boolean;
 }) {
+  const initials = user.slice(0, 2).toUpperCase();
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-10 w-10 rounded-full">
           <Avatar className="h-10 w-10 rounded-full">
-            <AvatarImage src={imageUrl} alt="user" />
-            <AvatarFallback>{user.slice(0, 2).toUpperCase()}</AvatarFallback>
+            <AvatarImage src={imageUrl} alt="" />
+            <AvatarFallback>{initials}</AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
@@ -61,8 +76,8 @@ export default function UserNav({
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          {navItems.map((item, index) => (
-            <DropdownMenuItem asChild key={index}>
+          {navItems.map((item) => (
+            <DropdownMenuItem asChild key={item.href}>
               <Link
                 href={item.href}
                 className="w-full flex justify-between items-center"
@@ -74,15 +89,19 @@ export default function UserNav({
           ))}
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem
-          className="w-full flex justify-between items-center"
-          asChild
-        >
-          <LogoutLink className="flex items-center gap-x-2">
-            <span>Log out</span>
-            <LogOutIcon className="w-4 h-4" />
-          </LogoutLink>
-        </DropdownMenuItem>
+        {isDemo ? (
+          <DropdownMenuItem disabled className="justify-between">
+            <span>Demo mode</span>
+            <span className="text-xs text-muted-foreground">local</span>
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem className="w-full flex justify-between items-center" asChild>
+            <LogoutLink className="flex items-center gap-x-2">
+              <span>Log out</span>
+              <LogOutIcon className="w-4 h-4" />
+            </LogoutLink>
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

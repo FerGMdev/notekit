@@ -134,6 +134,18 @@ Measure: 7-day activation and free→pro conversion.`,
   },
 ];
 
+/** Tags and favourites keep the demo data looking like a used product. */
+const noteMeta: Record<string, { tags: string[]; isFavorite?: boolean }> = {
+  "Weekly sync — product decisions": { tags: ["product", "meetings"] },
+  "Deploy runbook": { tags: ["engineering", "ops"], isFavorite: true },
+  "Reading list": { tags: ["reading"] },
+  "API design principles": { tags: ["engineering", "architecture"] },
+  "Interview notes — backend candidate": { tags: ["hiring"] },
+  "Trip planning — Oaxaca": { tags: ["personal", "travel"] },
+  "Q3 retro": { tags: ["engineering", "process"], isFavorite: true },
+  "Pricing experiments": { tags: ["product", "pricing"] },
+};
+
 async function seedUser(id: string, email: string, name: string) {
   return prisma.user.upsert({
     where: { id },
@@ -151,11 +163,21 @@ async function main() {
   });
 
   await prisma.note.createMany({
-    data: freeUserNotes.map((note) => ({ ...note, userId: freeUser.id })),
+    data: freeUserNotes.map((note) => ({
+      ...note,
+      userId: freeUser.id,
+      tags: noteMeta[note.title]?.tags ?? [],
+      isFavorite: noteMeta[note.title]?.isFavorite ?? false,
+    })),
   });
 
   await prisma.note.createMany({
-    data: proUserNotes.map((note) => ({ ...note, userId: proUser.id })),
+    data: proUserNotes.map((note) => ({
+      ...note,
+      userId: proUser.id,
+      tags: noteMeta[note.title]?.tags ?? [],
+      isFavorite: noteMeta[note.title]?.isFavorite ?? false,
+    })),
   });
 
   await prisma.subscription.upsert({

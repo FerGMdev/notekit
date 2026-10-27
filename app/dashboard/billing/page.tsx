@@ -1,4 +1,5 @@
 import { requireUser } from "@/app/lib/auth";
+import { requireAppUser } from "@/app/lib/session";
 import {
   cancelMockSubscription,
   createCheckoutUrl,
@@ -37,7 +38,7 @@ export default async function BillingPage({
 }: {
   searchParams: Promise<{ reason?: string }>;
 }) {
-  const user = await requireUser();
+  const user = await requireAppUser();
   const [status, { reason }] = await Promise.all([
     getSubscriptionStatus(user.id),
     searchParams,

@@ -1,5 +1,5 @@
 {
-  "name": "my-saas-app",
+  "name": "notekit",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -14,6 +14,7 @@
     "db:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
+    "demo:reset": "node scripts/reset-demo-user.mjs",
     "postinstall": "prisma generate"
   },
   "prisma": {
@@ -34,6 +35,8 @@
     "next-themes": "^0.3.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "stripe": "^17.2.1",
     "tailwind-merge": "^2.5.4",
     "tailwindcss-animate": "^1.0.7",

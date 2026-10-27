@@ -1,6 +1,7 @@
 import prisma from "./db";
 import type { SessionUser } from "./auth";
 import { ensureStripeCustomer, FREE_NOTE_LIMIT } from "./billing";
+import { isDevAuth } from "./env";
 
 const WELCOME_NOTE = {
   title: "Welcome — start here",
@@ -8,8 +9,9 @@ const WELCOME_NOTE = {
 
 This is your first note. A few things you can do:
 
-- **Edit** it with the pencil icon, or delete it once you are done.
+- **Edit** it with the pencil icon, or move it to trash once you are done.
 - Create as many notes as you need: the free plan allows ${FREE_NOTE_LIMIT}.
+- Add **tags** and mark notes as favourites to find them faster.
 - Switch the colour scheme from **Settings**.
 
 ## Markdown works
@@ -21,7 +23,72 @@ npm run dev
 \`\`\`
 
 > Tip: your notes are private. Nobody else can read or modify them.`,
+  tags: ["welcome"],
+  isFavorite: false,
 };
+
+/**
+ * Demo mode should look like a used product, not an empty database: a few
+ * notes with tags, a favourite and Markdown worth switching to Preview for.
+ * These are created once for the local demo user only.
+ */
+const DEV_DEMO_NOTES = [
+  {
+    title: "Deploy runbook",
+    description: `# Deploy runbook
+
+1. Merge to \`main\`; CI runs typecheck, tests and a production build.
+2. Apply migrations: \`npm run db:deploy\`.
+3. Deploy, then check \`/api/health\` and the error dashboard.
+
+\`\`\`bash
+npm run db:deploy
+npm run build
+\`\`\`
+
+> Roll back by redeploying the previous build. Migrations are additive.`,
+    tags: ["engineering", "ops"],
+    isFavorite: true,
+  },
+  {
+    title: "How we review code",
+    description: `# How we review code
+
+- Keep the diff small enough to read in one sitting.
+- A review is about the code, never the author.
+- Every bug fix gets a test that fails before the fix.
+
+## Checklist
+
+| Check | Why |
+| --- | --- |
+| Ownership checks | Prevent IDOR |
+| Input validation | Untrusted data stays at the boundary |
+| Error states | Users should know what happened |`,
+    tags: ["engineering", "process"],
+    isFavorite: false,
+  },
+  {
+    title: "Reading list",
+    description: `# Reading list
+
+- *A Philosophy of Software Design* — deep modules, narrow interfaces.
+- *Designing Data-Intensive Applications* — chapters 5–7 on replication.
+- The Postgres docs on [indexes](https://www.postgresql.org/docs/current/indexes.html).`,
+    tags: ["reading"],
+    isFavorite: false,
+  },
+  {
+    title: "Product ideas parking lot",
+    description: `# Parking lot
+
+- Public share links with a readable slug.
+- Weekly digest email of notes you have not opened.
+- Snippets collection for the team wiki.`,
+    tags: ["product", "ideas"],
+    isFavorite: false,
+  },
+];
 
 /**
  * Mirrors the identity provider user into our database and makes sure a
@@ -44,8 +111,10 @@ export async function ensureUser(user: SessionUser) {
     });
 
     // Give every new account something to read instead of an empty screen.
-    await prisma.note.create({
-      data: { ...WELCOME_NOTE, userId: user.id },
+    await prisma.note.createMany({
+      data: (isDevAuth ? [WELCOME_NOTE, ...DEV_DEMO_NOTES] : [WELCOME_NOTE]).map(
+        (note) => ({ ...note, userId: user.id })
+      ),
     });
 
     await ensureStripeCustomer({ userId: user.id, email: user.email });

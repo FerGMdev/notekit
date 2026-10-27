@@ -69,6 +69,27 @@ export function StripeSubscriptionEditButton() {
   );
 }
 
+export function TrashNoteButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <Button
+      variant="outline"
+      size="icon"
+      type="submit"
+      disabled={pending}
+      title="Move to trash"
+      aria-label="Move to trash"
+    >
+      {pending ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <Trash className="h-4 w-4" />
+      )}
+    </Button>
+  );
+}
+
 export function DeleteNoteButton() {
   const { pending } = useFormStatus();
 
